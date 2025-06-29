@@ -1,8 +1,8 @@
-name: Docker Build-Scan-Push
+name: Docker Build-Scan-Deploy
 
 on:
   push:
-    branches: [ "master", "main" ]
+    branches: [ "master", "main" ]     # lance depuis master OU main
   pull_request:
 
 jobs:
@@ -10,40 +10,63 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1) Checkout code
-      - uses: actions/checkout@v4
+    # 1) Clone du code
+    - uses: actions/checkout@v4
 
-      # 2) Build JAR (Maven)
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-          cache: maven
-      - run: mvn -B -DskipTests package
+    # 2) Compilation Maven (JAR sans tests)
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: 17
+        cache: maven
+    - name: Build jar
+      run: mvn -B -DskipTests package
 
-      # 3) Build Docker image
-      - name: Build Docker image
-        run: docker build -t ${{ secrets.DOCKERHUB_USER }}/demo:${{ github.sha }} .
+    # 3) Construction de l’image Docker
+    - name: Build Docker image
+      run: |
+        docker build -t ${{ secrets.DOCKERHUB_USER }}/demo:${{ github.sha }} .
 
-      # 4) Scan avec Trivy
-      - name: Trivy scan
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ secrets.DOCKERHUB_USER }}/demo:${{ github.sha }}
-          format: table
-          exit-code: 1
-          severity: HIGH,CRITICAL
-          vuln-type: os,library
+    # 4) Scan sécurité Trivy
+    - name: Trivy scan
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ secrets.DOCKERHUB_USER }}/demo:${{ github.sha }}
+        format: table
+        vuln-type: os,library
+        severity: HIGH,CRITICAL          # bloque seulement si HIGH/CRITICAL
+        exit-code: 1
 
-      # 5) Login Docker Hub
-      - uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USER }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+    # 5) Connexion Docker Hub + push
+    - name: Login Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USER }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 6) Push image
-      - name: Push image
-        run: |
-          docker push ${{ secrets.DOCKERHUB_USER }}/demo:${{ github.sha }}
-          docker tag  ${{ secrets.DOCKERHUB_USER }}/demo:${{ github.sha }} ${{ secrets.DOCKERHUB_USER }}/demo:latest
-          docker push ${{ secrets.DOCKERHUB_USER }}/demo:latest
+    - name: Push image
+      run: |
+        docker push ${{ secrets.DOCKERHUB_USER }}/demo:${{ github.sha }}
+        docker tag  ${{ secrets.DOCKERHUB_USER }}/demo:${{ github.sha }} \
+                    ${{ secrets.DOCKERHUB_USER }}/demo:latest
+        docker push ${{ secrets.DOCKERHUB_USER }}/demo:latest
+
+    # 6) Déploiement automatique sur la VM
+    - name: Deploy on VM
+      if: github.ref == 'refs/heads/master'   # déploie uniquement depuis master
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.VM_HOST }}
+        username: ${{ secrets.VM_USER }}
+        key: ${{ secrets.VM_SSH_KEY }}
+        script: |
+          echo "Pull last image"
+          docker pull ${{ secrets.DOCKERHUB_USER }}/demo:${{ github.sha }}
+
+          echo "Restart container"
+          docker stop demo || true
+          docker rm   demo || true
+          docker run -d --name demo -p 80:8080 --restart=always \
+            ${{ secrets.DOCKERHUB_USER }}/demo:${{ github.sha }}
+
+          docker ps -a | grep demo
