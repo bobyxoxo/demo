@@ -25,12 +25,12 @@ jobs:
         run: mvn -B verify
 
       # Analyse SonarCloud
-      - name: SonarCloud analysis
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: |
-          mvn -B sonar:sonar \
-            -Dsonar.projectKey=sofian_demo1 \          # ← remplace par ta clé exacte
-            -Dsonar.organization=bobyxoxo \           # ← ton organisation SonarCloud
-            -Dsonar.host.url=https://sonarcloud.io \
-            -Dsonar.login=$SONAR_TOKEN
+- name: SonarCloud analysis
+  env:
+    SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  run: |
+    mvn -B sonar:sonar \
+      -Dsonar.projectKey=sofian_demo1 \
+      -Dsonar.organization=bobyxoxo \
+      -Dsonar.host.url=https://sonarcloud.io \
+      -Dsonar.login=$SONAR_TOKEN
