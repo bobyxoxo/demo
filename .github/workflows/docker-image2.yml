@@ -32,6 +32,7 @@ jobs:
           image-ref: ${{ secrets.DOCKERHUB_USER }}/demo:${{ github.sha }}
           format: table
           exit-code: 1
+          severity: HIGH,CRITICAL
           vuln-type: os,library
 
       # 5) Login Docker Hub
