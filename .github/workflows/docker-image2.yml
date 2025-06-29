@@ -1,0 +1,48 @@
+name: Docker Build-Scan-Push
+
+on:
+  push:
+    branches: [ "master", "main" ]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1) Checkout code
+      - uses: actions/checkout@v4
+
+      # 2) Build JAR (Maven)
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+      - run: mvn -B -DskipTests package
+
+      # 3) Build Docker image
+      - name: Build Docker image
+        run: docker build -t ${{ secrets.DOCKERHUB_USER }}/demo:${{ github.sha }} .
+
+      # 4) Scan avec Trivy
+      - name: Trivy scan
+        uses: aquasecurity/trivy-action@v0.13.0
+        with:
+          image-ref: ${{ secrets.DOCKERHUB_USER }}/demo:${{ github.sha }}
+          format: table
+          exit-code: 1
+          vuln-type: os,library
+
+      # 5) Login Docker Hub
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 6) Push image
+      - name: Push image
+        run: |
+          docker push ${{ secrets.DOCKERHUB_USER }}/demo:${{ github.sha }}
+          docker tag  ${{ secrets.DOCKERHUB_USER }}/demo:${{ github.sha }} ${{ secrets.DOCKERHUB_USER }}/demo:latest
+          docker push ${{ secrets.DOCKERHUB_USER }}/demo:latest
