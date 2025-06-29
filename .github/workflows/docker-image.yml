@@ -1,0 +1,56 @@
+name: Docker Build-Scan-Push
+
+on:
+  push:
+    branches: [ "master", "main" ]        # s’exécute sur main ET/OU master
+    paths:
+      - "Dockerfile"
+      - "src/**"
+      - "pom.xml"
+      - ".github/workflows/docker-image.yml"
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1) Récupère le code
+      - uses: actions/checkout@v4
+
+      # 2) (Option) Build Maven pour être sûr d’avoir le JAR
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+      - run: mvn -B -DskipTests package
+
+      # 3) Build image Docker (tag = USER/demo:<SHA>)
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USER }}/demo:${{ github.sha }} .
+
+      # 4) Scan CVE avec Trivy (échoue si critique)
+      - name: Trivy scan
+        uses: aquasecurity/trivy-action@v0.13.0
+        with:
+          image-ref: ${{ secrets.DOCKERHUB_USER }}/demo:${{ github.sha }}
+          format: table
+          exit-code: 1          # Fail si HIGH|CRITICAL
+          vuln-type: os,library
+
+      # 5) Login Docker Hub
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 6) Push image (SHA + latest)
+      - name: Push image
+        run: |
+          docker push ${{ secrets.DOCKERHUB_USER }}/demo:${{ github.sha }}
+          docker tag  ${{ secrets.DOCKERHUB_USER }}/demo:${{ github.sha }} \
+                      ${{ secrets.DOCKERHUB_USER }}/demo:latest
+          docker push ${{ secrets.DOCKERHUB_USER }}/demo:latest
