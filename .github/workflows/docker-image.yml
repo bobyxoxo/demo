@@ -5,7 +5,7 @@ on:
     branches: [ "master", "main" ]        # s’exécute sur main ET/OU master
     paths:
       - "Dockerfile"
-      - "src/**"
+      - "src/**" 
       - "pom.xml"
       - ".github/workflows/docker-image.yml"
   pull_request:
