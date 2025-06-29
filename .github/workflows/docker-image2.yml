@@ -27,7 +27,7 @@ jobs:
 
       # 4) Scan avec Trivy
       - name: Trivy scan
-        uses: aquasecurity/trivy-action@v0.13.0
+        uses: aquasecurity/trivy-action@v0.14.0
         with:
           image-ref: ${{ secrets.DOCKERHUB_USER }}/demo:${{ github.sha }}
           format: table
