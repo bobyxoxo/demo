@@ -10,27 +10,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Récupère le code
+      # 1) Récupération du code
       - uses: actions/checkout@v3
 
-      # Installe le JDK 17 et met le cache Maven
+      # 2) Installation du JDK 17 + cache Maven
       - uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 17
           cache: maven
 
-      # Build + tests
+      # 3) Build et tests unitaires
       - name: Build & tests
         run: mvn -B verify
 
-      # Analyse SonarCloud
-- name: SonarCloud analysis
-  env:
-    SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-  run: |
-    mvn -B sonar:sonar \
-      -Dsonar.projectKey=sofian_demo1 \
-      -Dsonar.organization=bobyxoxo \
-      -Dsonar.host.url=https://sonarcloud.io \
-      -Dsonar.login=$SONAR_TOKEN
+      # 4) Analyse SonarCloud
+      - name: SonarCloud analysis
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          mvn -B sonar:sonar \
+            -Dsonar.projectKey=sofian_demo1 \
+            -Dsonar.organization=bobyxoxo \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.login=$SONAR_TOKEN
